@@ -9,8 +9,6 @@ except:
 
 from gluon import current
 from gluon.storage import Storage
-#from s3rest import S3Method
-
 from s3 import S3Method
 
 def config(settings):
@@ -1227,18 +1225,6 @@ def config(settings):
         #)),
     ])
 
-# -------------------------------------------------------------------------
-    def customise_inv_recv_resource(r, tablename):
-
-        # Custom GRN
-        current.s3db.set_method("inv", "recv",
-                                method = "form",
-                                action = PrintableShipmentForm,
-                                )
-
-    settings.customise_inv_recv_resource = customise_inv_recv_resource
-#--------------------------------------------------------------------------
-
 # =============================================================================
 class PrintableShipmentForm(S3Method):
     """ REST Method Handler for Printable Shipment Forms """
@@ -1412,197 +1398,196 @@ class PrintableShipmentForm(S3Method):
                      )
     
     # -------------------------------------------------------------------------
-    #def waybill(self, r, **attr):
-    #    """
-    #        Waybill
-    #        @param r: the S3Request instance
-    #        @param attr: controller attributes
-    #    """
-    #
-    #    T = current.T
-    #    s3db = current.s3db
-    #
-    #    # Component declarations to distinguish between the
-    #    # origin and destination warehouses
-    #    s3db.add_components("inv_send",
-    #                        inv_warehouse = ({"name": "origin",
-    #                                          "joinby": "site_id",
-    #                                          "pkey": "site_id",
-    #                                          "filterby": False,
-    #                                          "multiple": False,
-    #                                          },
-    #                                         {"name": "destination",
-    #                                          "joinby": "site_id",
-    #                                          "pkey": "to_site_id",
-    #                                          "filterby": False,
-    #                                          "multiple": False,
-    #                                          },
-    #                                         ),
-    #
-    #                     )
-    #
-    #    # Master record (=inv_send)
-    #    resource = s3db.resource(r.tablename,
-    #                             id = r.id,
-    #                             components = ["origin",
-    #                                           "destination",
-    #                                           "track_item",
-    #                                           ],
-    #                             )
-    #
-    #    # Columns and data for the form header
-    #    header_fields = ["send_ref",
-    #                     "req_ref",
-    #                     "date",
-    #                     "delivery_date",
-    #                     (T("Origin"), "site_id"),
-    #                     (T("Destination"), "to_site_id"),
-    #                     "sender_id",
-    #                     "origin.contact",
-    #                     "recipient_id",
-    #                     "destination.contact",
-    #                     "transported_by",
-    #                     "transport_ref",
-    #                     (T("Delivery Address"), "destination.location_id"),
-    #                     "comments",
-    #                     ]
-    #
-    #    header_data = resource.select(header_fields,
-    #                                  start = 0,
-    #                                  limit = 1,
-    #                                  represent = True,
-    #                                  show_links = False,
-    #                                  raw_data = True,
-    #                                  )
-    #    if not header_data:
-    #        r.error(404, current.ERROR.BAD_RECORD)
-    #
-    #    # Generate PDF header
-    #    pdf_header = self.waybill_header(header_data)
-    #
-    #    # Filename from send_ref
-    #    header_row = header_data.rows[0]
-    #    pdf_filename = header_row["_row"]["inv_send.send_ref"]
-    #
-    #    # Component (=inv_track_item)
-    #    component = resource.components["track_item"]
-    #    body_fields = ["bin",
-    #                   "item_id",
-    #                   "item_pack_id",
-    #                   "quantity",
-    #                   (T("Total Volume (m3)"), "total_volume"),
-    #                   (T("Total Weight (kg)"), "total_weight"),
-    #                   "supply_org_id",
-    #                   "inv_item_status",
-    #                   ]
-    #    # Any extra fields needed for virtual fields
-    #    component.configure(extra_fields = ["item_id$weight",
-    #                                        "item_id$volume",
-    #                                        ],
-    #                        )
-    #
-    #    # Aggregate methods and column names
-    #    aggregate = [("sum", "inv_track_item.quantity"),
-    #                 ("sum", "inv_track_item.total_volume"),
-    #                 ("sum", "inv_track_item.total_weight"),
-    #                 ]
-    #
-    #    # Generate the JSON data dict
-    #    json_data = self._json_data(component,
-    #                                body_fields,
-    #                                aggregate = aggregate,
-    #                                )
-    #
-    #    # Generate the grouped items table
-    #    from s3 import S3GroupedItemsTable
-    #    output = S3GroupedItemsTable(component,
-    #                                 data = json_data,
-    #                                 totals_label = T("Total"),
-    #                                 title = T("Waybill"),
-    #                                 pdf_header = pdf_header,
-    #                                 pdf_footer = self.waybill_footer,
-    #                                 )
-    #
-    #    # ...and export it as PDF
-    #    return output.pdf(r, filename=pdf_filename)
-    #
+    def waybill(self, r, **attr):
+        """
+            Waybill
+            @param r: the S3Request instance
+            @param attr: controller attributes
+        """
+
+        T = current.T
+        s3db = current.s3db
+
+        # Component declarations to distinguish between the
+        # origin and destination warehouses
+        s3db.add_components("inv_send",
+                            inv_warehouse = ({"name": "origin",
+                                              "joinby": "site_id",
+                                              "pkey": "site_id",
+                                              "filterby": False,
+                                              "multiple": False,
+                                              },
+                                             {"name": "destination",
+                                              "joinby": "site_id",
+                                              "pkey": "to_site_id",
+                                              "filterby": False,
+                                              "multiple": False,
+                                              },
+                                             ),
+                            )
+
+        # Master record (=inv_send)
+        resource = s3db.resource(r.tablename,
+                                 id = r.id,
+                                 components = ["origin",
+                                               "destination",
+                                               "track_item",
+                                               ],
+                                 )
+
+        # Columns and data for the form header
+        header_fields = ["send_ref",
+                         "req_ref",
+                         "date",
+                         "delivery_date",
+                         (T("Origin"), "site_id"),
+                         (T("Destination"), "to_site_id"),
+                         "sender_id",
+                         "origin.contact",
+                         "recipient_id",
+                         "destination.contact",
+                         "transported_by",
+                         "transport_ref",
+                         (T("Delivery Address"), "destination.location_id"),
+                         "comments",
+                         ]
+
+        header_data = resource.select(header_fields,
+                                      start = 0,
+                                      limit = 1,
+                                      represent = True,
+                                      show_links = False,
+                                      raw_data = True,
+                                      )
+        if not header_data:
+            r.error(404, current.ERROR.BAD_RECORD)
+
+        # Generate PDF header
+        pdf_header = self.waybill_header(header_data)
+
+        # Filename from send_ref
+        header_row = header_data.rows[0]
+        pdf_filename = header_row["_row"]["inv_send.send_ref"]
+
+        # Component (=inv_track_item)
+        component = resource.components["track_item"]
+        body_fields = ["bin",
+                       "item_id",
+                       "item_pack_id",
+                       "quantity",
+                       (T("Total Volume (m3)"), "total_volume"),
+                       (T("Total Weight (kg)"), "total_weight"),
+                       "supply_org_id",
+                       "inv_item_status",
+                       ]
+        # Any extra fields needed for virtual fields
+        component.configure(extra_fields = ["item_id$weight",
+                                            "item_id$volume",
+                                            ],
+                            )
+
+        # Aggregate methods and column names
+        aggregate = [("sum", "inv_track_item.quantity"),
+                     ("sum", "inv_track_item.total_volume"),
+                     ("sum", "inv_track_item.total_weight"),
+                     ]
+
+        # Generate the JSON data dict
+        json_data = self._json_data(component,
+                                    body_fields,
+                                    aggregate = aggregate,
+                                    )
+
+        # Generate the grouped items table
+        from s3 import S3GroupedItemsTable
+        output = S3GroupedItemsTable(component,
+                                     data = json_data,
+                                     totals_label = T("Total"),
+                                     title = T("Waybill"),
+                                     pdf_header = pdf_header,
+                                     pdf_footer = self.waybill_footer,
+                                     )
+
+        # ...and export it as PDF
+        return output.pdf(r, filename=pdf_filename)
+
     # -------------------------------------------------------------------------
-    # @classmethod
-    # def waybill_header(cls, data):
-    #    """
-    #        Header for Waybills
-    #        @param data: the S3ResourceData for the inv_send
-    #    """
-    #
-    #    row = data.rows[0]
-    #    labels = dict((rfield.colname, rfield.label) for rfield in data.rfields)
-    #
-    #    from gluon import DIV, H2, H4, TABLE, TD, TH, TR, P
-    #
-    #    T = current.T
-    #
-    #    # Get organisation name and logo
-    #    from layouts import OM
-    #    name, logo = OM().render()
-    #
-    #    # The title
-    #    title = H2(T("Waybill"))
-    #
-    #    # Waybill details
-    #    row_ = lambda left, right, row=row, labels=labels: \
-    #                  cls._header_row(left, right, row=row, labels=labels)
-    #    dtable = TABLE(
-    #                TR(TD(DIV(logo, H4(name)), _colspan = 2),
-    #                   TD(DIV(title), _colspan = 2),
-    #                   ),
-    #                row_("inv_send.send_ref", "inv_send.req_ref"),
-    #                row_("inv_send.date", "inv_send.delivery_date"),
-    #                row_("inv_send.site_id", "inv_send.to_site_id"),
-    #                row_("inv_send.sender_id", "inv_send.recipient_id"),
-    #                row_("inv_origin_warehouse.contact",
-    #                     "inv_destination_warehouse.contact",
-    #                     ),
-    #                row_("inv_send.transported_by", "inv_send.transport_ref"),
-    #                row_("inv_destination_warehouse.location_id", None),
-    #             )
-    # 
-    #    # Waybill comments
-    #    ctable = TABLE(TR(TH(T("Comments"))),
-    #                   TR(TD(row["inv_send.comments"])),
-    #                   )
-    #
-    #    return DIV(dtable, P("&nbsp;"), ctable)
-    #
+    @classmethod
+    def waybill_header(cls, data):
+        """
+            Header for Waybills
+            @param data: the S3ResourceData for the inv_send
+        """
+
+        row = data.rows[0]
+        labels = dict((rfield.colname, rfield.label) for rfield in data.rfields)
+
+        from gluon import DIV, H2, H4, TABLE, TD, TH, TR, P
+
+        T = current.T
+
+        # Get organisation name and logo
+        from layouts import OM
+        name, logo = OM().render()
+
+        # The title
+        title = H2(T("Waybill"))
+
+        # Waybill details
+        row_ = lambda left, right, row=row, labels=labels: \
+                      cls._header_row(left, right, row=row, labels=labels)
+        dtable = TABLE(
+                    TR(TD(DIV(logo, H4(name)), _colspan = 2),
+                       TD(DIV(title), _colspan = 2),
+                       ),
+                    row_("inv_send.send_ref", "inv_send.req_ref"),
+                    row_("inv_send.date", "inv_send.delivery_date"),
+                    row_("inv_send.site_id", "inv_send.to_site_id"),
+                    row_("inv_send.sender_id", "inv_send.recipient_id"),
+                    row_("inv_origin_warehouse.contact",
+                         "inv_destination_warehouse.contact",
+                         ),
+                    row_("inv_send.transported_by", "inv_send.transport_ref"),
+                    row_("inv_destination_warehouse.location_id", None),
+                 )
+
+        # Waybill comments
+        ctable = TABLE(TR(TH(T("Comments"))),
+                       TR(TD(row["inv_send.comments"])),
+                       )
+
+        return DIV(dtable, P("&nbsp;"), ctable)
+
     # -------------------------------------------------------------------------
-    #@staticmethod
-    #def waybill_footer(r):
-    #    """
-    #        Footer for Waybills
-    #        @param r: the S3Request
-    #    """
-    #
-    #    T = current.T
-    #    from gluon import TABLE, TD, TH, TR
-    #
-    #    return TABLE(TR(TH(T("Shipment")),
-    #                    TH(T("Date")),
-    #                    TH(T("Function")),
-    #                    TH(T("Name")),
-    #                    TH(T("Signature")),
-    #                    TH(T("Status")),
-    #                    ),
-    #                 TR(TD(T("Sent by"))),
-    #                 TR(TD(T("Transported by"))),
-    #                 TR(TH(T("Received by")),
-    #                    TH(T("Date")),
-    #                    TH(T("Function")),
-    #                    TH(T("Name")),
-    #                    TH(T("Signature")),
-    #                    TH(T("Status")),
-    #                    ),
-    #                 TR(TD("&nbsp;")),
-    #                 )
-     
+    @staticmethod
+    def waybill_footer(r):
+        """
+            Footer for Waybills
+            @param r: the S3Request
+        """
+
+        T = current.T
+        from gluon import TABLE, TD, TH, TR
+
+        return TABLE(TR(TH(T("Shipment")),
+                        TH(T("Date")),
+                        TH(T("Function")),
+                        TH(T("Name")),
+                        TH(T("Signature")),
+                        TH(T("Status")),
+                        ),
+                     TR(TD(T("Sent by"))),
+                     TR(TD(T("Transported by"))),
+                     TR(TH(T("Received by")),
+                        TH(T("Date")),
+                        TH(T("Function")),
+                        TH(T("Name")),
+                        TH(T("Signature")),
+                        TH(T("Status")),
+                        ),
+                     TR(TD("&nbsp;")),
+                     )
+
     # -------------------------------------------------------------------------
     def goods_received_note(self, r, **attr):
         """
