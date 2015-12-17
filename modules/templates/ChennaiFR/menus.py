@@ -264,11 +264,11 @@ class S3OptionsMenu(default.S3OptionsMenu):
 
 
     # -------------------------------------------------------------------------
-    def org(self):
-    #    """ Organisation Management """
-    
-        # Same as HRM
-        return self.hrm()
+   #def org(self):
+   # #    """ Organisation Management """
+   # 
+   #     # Same as HRM
+   #     return self.hrm()
 
     
     # -------------------------------------------------------------------------
@@ -287,21 +287,6 @@ class S3OptionsMenu(default.S3OptionsMenu):
         inv_recv_list = current.response.s3.crud_strings.inv_recv.title_list
 
         settings = current.deployment_settings
-        #use_adjust = lambda i: not settings.get_inv_direct_stock_edits()
-        #root_org = auth.root_org_name()
-        #def use_adjust(i):
-        #    if root_org in ("Australian Red Cross", "Honduran Red Cross"):
-        #        # Australian & Honduran RC use proper Logistics workflow
-        #        return True
-        #    else:
-        #        # Others use simplified version
-        #        return False
-        #def use_facilities(i):
-        #    if root_org == "Honduran Red Cross":
-        #        # Honduran RC don't use Facilities
-        #        return False
-        #    else:
-        #        return True
         def basic_warehouse(i):
             #if not (has_role("national_wh_manager") or \
             #        has_role(ORG_ADMIN)):
@@ -317,18 +302,6 @@ class S3OptionsMenu(default.S3OptionsMenu):
                 return False
             #else:
             #    return True
-        #def use_kits(i):
-        #    if root_org == "Honduran Red Cross":
-        #        # Honduran RC use Kits
-        #        return True
-        #    else:
-        #        return False
-        #def use_types(i):
-        #    if root_org == "Nepal Red Cross Society":
-        #        # Nepal RC use Warehouse Types
-        #        return True
-        #    else:
-        #        return False
         use_commit = lambda i: settings.get_req_use_commit()
 
         return M()(
@@ -423,91 +396,5 @@ class S3OptionsMenu(default.S3OptionsMenu):
         # Same as Inventory
         return self.inv()
 
-    # -------------------------------------------------------------------------
 
-    # -------------------------------------------------------------------------
-    #@staticmethod
-    #def project():
-    #    """ PROJECT / Project Tracking & Management """
-    #
-    #    #root_org = current.auth.root_org_name()
-    #    #def community_volunteers(i):
-    #    #    if root_org == "Honduran Red Cross":
-    #    #        return True
-    #    #    else:
-    #    #        return False
-    #
-    #    system_roles = current.session.s3.system_roles
-    #    ORG_ADMIN = system_roles.ORG_ADMIN
-    #
-    #    menu = M(c="project")(
-    #         M("Programs", f="programme")(
-    #            M("Create", m="create"),
-    #         ),
-    #         M("Projects", f="project", m="summary")(
-    #            M("Create", m="create"),
-    #         ),
-    #         M("Locations", f="location")(
-    #            # Better created from tab (otherwise Activity Type filter won't work)
-    #            #M("Create", m="create"),
-    #            M("Map", m="map"),
-    #            M("Community Contacts", f="location_contact"),
-    #            #M("Community Volunteers", f="volunteer",
-    #            #  check=community_volunteers),
-    #         ),
-    #        M("Reports", f="location", m="report")(
-    #            M("3W", f="location", m="report"),
-    #            M("Beneficiaries", f="beneficiary", m="report"),
-    #            #M("Indicators", f="indicator", m="report",
-    #            #  check=indicators,
-    #            #  ),
-    #            #M("Indicators over Time", f="indicator", m="timeplot",
-    #            #  check=indicators,
-    #            #  ),
-    #            M("Funding", f="organisation", m="report"),
-    #         ),
-    #         M("Import", f="project", m="import", p="create", restrict=[ORG_ADMIN])(
-    #            M("Import Projects", m="import", p="create"),
-    #            M("Import Project Organizations", f="organisation",
-    #              m="import", p="create"),
-    #            M("Import Project Communities", f="location",
-    #              m="import", p="create"),
-    #         ),
-    #         M("National Societies",  c="org", f="organisation",
-    #                                  vars=red_cross_filter)(
-    #            #M("Create", m="create", restrict=[ADMIN]),
-    #            #M("Import", m="import", p="create", restrict=[ADMIN]),
-    #         ),
-    #         M("Partner Organizations",  f="partners")(
-    #            M("Create", m="create", restrict=[ORG_ADMIN]),
-    #            M("Import", m="import", p="create", restrict=[ORG_ADMIN]),
-    #         ),
-    #         #M("Activity Types", f="activity_type")(
-    #         #   M("Create", m="create"),
-    #         #),
-    #         M("Beneficiary Types", f="beneficiary_type")(
-    #            M("Create", m="create"),
-    #         ),
-    #         #M("Demographics", f="demographic")(
-    #         #   M("Create", m="create"),
-    #         #),
-    #         M("Hazards", f="hazard")(
-    #            M("Create", m="create"),
-    #         ),
-    #         #M("Indicators", f="indicator",
-    #         #  check=indicators)(
-    #         #   M("Create", m="create"),
-    #         #),
-    #         M("Sectors", f="sector")(
-    #            M("Create", m="create"),
-    #         ),
-    #         M("Themes", f="theme")(
-    #            M("Create", m="create"),
-    #         ),
-    #        )
-    #
-    #    return menu
-
-    # -------------------------------------------------------------------------
-  
 # END =========================================================================
