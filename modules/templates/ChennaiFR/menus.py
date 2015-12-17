@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from gluon import *
+from gluon import current
 from s3 import *
 from s3layouts import *
 try:
@@ -9,108 +9,505 @@ except ImportError:
     pass
 import s3menus as default
 
-# Below is an example which you can base your own template's menus.py on
-# - there are also other examples in the other templates folders
-
 # =============================================================================
-#class S3MainMenu(default.S3MainMenu):
-    #"""
-        #Custom Application Main Menu:
-
-        #The main menu consists of several sub-menus, each of which can
-        #be customised separately as a method of this class. The overall
-        #composition of the menu is defined in the menu() method, which can
-        #be customised as well:
-
-        #Function        Sub-Menu                Access to (standard)
-
-        #menu_modules()  the modules menu        the Eden modules
-        #menu_gis()      the GIS menu            GIS configurations
-        #menu_admin()    the Admin menu          System/User Administration
-        #menu_lang()     the Language menu       Selection of the GUI locale
-        #menu_auth()     the User menu           Login, Logout, User Profile
-        #menu_help()     the Help menu           Contact page, About page
-
-        #The standard uses the MM layout class for main menu items - but you
-        #can of course use a custom layout class which you define in layouts.py.
-
-        #Additional sub-menus can simply be defined as additional functions in
-        #this class, and then be included in the menu() method.
-
-        #Each sub-menu function returns a list of menu items, only the menu()
-        #function must return a layout class instance.
-    #"""
+class S3MainMenu(default.S3MainMenu):
+    """ Custom Application Main Menu """
 
     # -------------------------------------------------------------------------
-    #@classmethod
-    #def menu(cls):
-        #""" Compose Menu """
+    @classmethod
+    def menu(cls):
+        """ Compose Menu """
 
-        #main_menu = MM()(
+        # Modules menus
+        main_menu = MM()(
+            cls.menu_modules(),
+            cls.menu_admin(right=True),
+            cls.menu_auth(right=True),
+        )
+        
+        # Additional menus
+        #current.menu.personal = cls.menu_personal()
+        current.menu.lang = cls.menu_lang()
+        current.menu.about = cls.menu_about()
+        #current.menu.org = cls.menu_org()
+        
+        # @todo: restore?
+        #current.menu.dashboard = cls.menu_dashboard()
 
-            ## Modules-menu, align-left
-            #cls.menu_modules(),
-
-            ## Service menus, align-right
-            ## Note: always define right-hand items in reverse order!
-            #cls.menu_help(right=True),
-            #cls.menu_auth(right=True),
-            #cls.menu_lang(right=True),
-            #cls.menu_admin(right=True),
-            #cls.menu_gis(right=True)
-        #)
-        #return main_menu
+        return main_menu
 
     # -------------------------------------------------------------------------
-    #@classmethod
-    #def menu_modules(cls):
-        #""" Custom Modules Menu """
+    @classmethod
+    def menu_modules(cls):
+        """ Custom Modules Menu """
 
-        #return [
-            #homepage(),
-            #homepage("gis"),
-            #homepage("pr")(
-                #MM("Persons", f="person"),
-                #MM("Groups", f="group")
-            #),
-            #MM("more", link=False)(
-                #homepage("dvi"),
-                #homepage("irs")
-            #),
-        #]
+        auth = current.auth
+
+        if len(current.session.s3.roles) <= 2:
+            # No specific Roles
+            # Just show Profile on main menu
+            return [MM("Profile", c="hrm", f="person",
+                       args=[str(auth.s3_logged_in_person())],
+                       vars={"profile":1},
+                       ),
+                    ]
+
+        has_role = auth.s3_has_role
+        #root_org = auth.root_org_name()
+        system_roles = current.session.s3.system_roles
+        ADMIN = system_roles.ADMIN
+        ORG_ADMIN = system_roles.ORG_ADMIN
+
+        s3db = current.s3db
+        s3db.inv_recv_crud_strings()
+        inv_recv_list = current.response.s3.crud_strings.inv_recv.title_list
+
+        def hrm(item):
+            return has_role(ORG_ADMIN) or \
+                   has_role("training_coordinator") or \
+                   has_role("training_assistant") or \
+                   has_role("surge_manager") or \
+                   has_role("disaster_manager")
+
+        def inv(item):
+            return has_role("wh_manager") or \
+                   has_role("national_wh_manager") or \
+                   has_role(ORG_ADMIN)
+
+        def basic_warehouse(i):
+            if not (has_role("national_wh_manager") or \
+                    has_role(ORG_ADMIN)):
+                # Hide menu entries which user shouldn't need access to
+                return False
+            else:
+                return True
+
+        def multi_warehouse(i):
+            if not (has_role("national_wh_manager") or \
+                    has_role(ORG_ADMIN)):
+                # Only responsible for 1 warehouse so hide menu entries which should be accessed via Tabs on their warehouse.
+                return False
+            else:
+                return True
+
+        menu= [
+                homepage("inv", "supply", "req")(                    
+                   MM("Warehouses", c="inv", f="warehouse", m="summary"),
+                   SEP(),
+                   MM(inv_recv_list, c="inv", f="recv"),
+                   MM("Sent Shipments", c="inv", f="send"),
+                   SEP(),
+                   MM("Items", c="supply", f="item"),
+                   MM("Catalogs", c="supply", f="catalog"),
+                   MM("Item Categories", c="supply", f="item_category"),
+                   M("Suppliers", c="inv", f="supplier")(),
+                   M("Facilities", c="inv", f="facility")(),
+                   M("Requests", c="req", f="req")(),
+                   #M("Commitments", f="commit")(),
+               ),
+               homepage("org","organisation","req")(
+                    M("Organizations", f="organisation")(
+                        M("Create", m="create"),
+                        M("Import", m="import")
+                    ),
+               ),
+               homepage("vol","Volunteers"),              
+               homepage("project", f="project", m="summary")(
+                   MM("Projects", c="project", f="project", m="summary"),
+                   MM("Locations", c="project", f="location"),                  
+               ),
+               ]
+
+        return menu
+    
+    # -------------------------------------------------------------------------
+    @classmethod
+    def menu_auth(cls, **attr):
+        """ Auth Menu """
+
+        auth = current.auth
+        logged_in = auth.is_logged_in()
+
+        if not logged_in:
+            request = current.request
+            login_next = URL(args=request.args, vars=request.vars)
+            if request.controller == "default" and \
+               request.function == "user" and \
+               "_next" in request.get_vars:
+                login_next = request.get_vars["_next"]
+
+            self_registration = current.deployment_settings.get_security_registration_visible()
+            if self_registration == "index":
+                register = MM("Register", c="default", f="index", m="register",
+                               vars=dict(_next=login_next),
+                               check=self_registration)
+            else:
+                register = MM("Register", m="register",
+                               vars=dict(_next=login_next),
+                               check=self_registration)
+
+            menu_auth = MM("Login", c="default", f="user", m="login",
+                           _id="auth_menu_login",
+                           vars=dict(_next=login_next), **attr)(
+                            MM("Login", m="login",
+                               vars=dict(_next=login_next)),
+                            register,
+                            MM("Lost Password", m="retrieve_password")
+                        )
+        else:
+            # Logged-in
+            menu_auth = MM(auth.user.email, c="default", f="user",
+                           translate=False, link=False, _id="auth_menu_email",
+                           **attr)(
+                            MM("Logout", m="logout", _id="auth_menu_logout"),
+                            MM("User Profile", m="profile"),
+                            MM("Personal Data", c="default", f="person", m="update"),
+                            MM("Contact Details", c="pr", f="person",
+                                args="contact",
+                                vars={"person.pe_id" : auth.user.pe_id}),                            
+                            MM("Change Password", m="change_password"),                            
+                        )
+
+        return menu_auth
+    
+    # -------------------------------------------------------------------------
+    @classmethod
+    def menu_admin(cls, **attr):
+        """ Administrator Menu """
+
+        s3_has_role = current.auth.s3_has_role
+        settings = current.deployment_settings
+        name_nice = settings.modules["admin"].name_nice
+
+        if s3_has_role("ADMIN"):
+            translate = settings.has_module("translate")
+            menu_admin = MM(name_nice, c="admin", **attr)(
+                                MM("Settings", f="setting"),
+                                MM("Users", f="user"),
+                                MM("Person Registry", c="pr"),
+                                MM("Database", c="appadmin", f="index"),
+                                MM("Error Tickets", f="errors"),
+                                MM("Synchronization", c="sync", f="index"),
+                                MM("Translation", c="admin", f="translate",
+                                   check=translate),
+                                MM("Test Results", f="result"),
+                            )
+        elif s3_has_role("ORG_ADMIN"):
+            menu_admin = MM(name_nice, c="admin", f="user", **attr)()
+        else:
+            menu_admin = None
+
+        return menu_admin
+ 
+ # -------------------------------------------------------------------------
+    @classmethod
+    def menu_org(cls):
+        """ Custom Organisation Menu """
+
+        OM = S3OrgMenuLayout
+        return OM()
+ # -------------------------------------------------------------------------
+    @classmethod
+    def menu_lang(cls):
+
+        s3 = current.response.s3
+
+        # Language selector
+        menu_lang = ML("Language", right=True)
+        for language in s3.l10n_languages.items():
+            code, name = language
+            menu_lang(
+                ML(name, translate=False, lang_code=code, lang_name=name)
+            )
+        return menu_lang
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def menu_about(cls):
+
+        menu_about = MA(c="default")(
+            MA("About Us", f="about"),
+            MA("Contact", f="contact"),
+            MA("Help", f="help"),
+            MA("Privacy", f="privacy"),
+        )
+        return menu_about
 
 # =============================================================================
-#class S3OptionsMenu(default.S3OptionsMenu):
-    #"""
-        #Custom Controller Menus
+class S3OptionsMenu(default.S3OptionsMenu):
+    """ Custom Controller Menus """
 
-        #The options menu (left-hand options menu) is individual for each
-        #controller, so each controller has its own options menu function
-        #in this class.
+    # -------------------------------------------------------------------------
+    def admin(self):
+        """ ADMIN menu """
 
-        #Each of these option menu functions can be customised separately,
-        #by simply overriding (re-defining) the default function. The
-        #options menu function must return an instance of the item layout.
+        # Standard Admin Menu
+        menu = super(S3OptionsMenu, self).admin()
 
-        #The standard menu uses the M item layout class, but you can of
-        #course also use any other layout class which you define in
-        #layouts.py (can also be mixed).
+        # Additional Items
+        menu(M("Map Settings", c="gis", f="config"),
+             M("Content Management", c="cms", f="index"),
+             )
 
-        #Make sure additional helper functions in this class don't match
-        #any current or future controller prefix (e.g. by using an
-        #underscore prefix).
-    #"""
+        return menu
 
-    #def cr(self):
-        #""" CR / Shelter Registry """
+    # -------------------------------------------------------------------------
+    def gis(self):
+        """ GIS / GIS Controllers """
 
-        #return M(c="cr")(
-                    #M("Camp", f="shelter")(
-                        #M("New", m="create"),
-                        #M("List All"),
-                        #M("Map", m="map"),
-                        #M("Import", m="import"),
-                    #)
-                #)
+        if current.request.function == "index":
+            # Empty so as to leave maximum space for the Map
+            # - functionality accessible via the Admin menu instead
+            return None
+        else:
+            return super(S3OptionsMenu, self).gis()
 
+
+    # -------------------------------------------------------------------------
+    def org(self):
+    #    """ Organisation Management """
+    
+        # Same as HRM
+        return self.hrm()
+
+    
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def inv():
+        """ INV / Inventory """
+
+        #auth = current.auth
+        has_role = current.auth.s3_has_role
+        system_roles = current.session.s3.system_roles
+        ADMIN = system_roles.ADMIN
+        ORG_ADMIN = system_roles.ORG_ADMIN
+
+        s3db = current.s3db
+        s3db.inv_recv_crud_strings()
+        inv_recv_list = current.response.s3.crud_strings.inv_recv.title_list
+
+        settings = current.deployment_settings
+        #use_adjust = lambda i: not settings.get_inv_direct_stock_edits()
+        #root_org = auth.root_org_name()
+        #def use_adjust(i):
+        #    if root_org in ("Australian Red Cross", "Honduran Red Cross"):
+        #        # Australian & Honduran RC use proper Logistics workflow
+        #        return True
+        #    else:
+        #        # Others use simplified version
+        #        return False
+        #def use_facilities(i):
+        #    if root_org == "Honduran Red Cross":
+        #        # Honduran RC don't use Facilities
+        #        return False
+        #    else:
+        #        return True
+        def basic_warehouse(i):
+            #if not (has_role("national_wh_manager") or \
+            #        has_role(ORG_ADMIN)):
+                # Hide menu entries which user shouldn't need access to
+                return False
+            #else:
+            #    return True
+        def multi_warehouse(i):
+            #if not (has_role("national_wh_manager") or \
+            #        has_role(ORG_ADMIN)):
+                # Only responsible for 1 warehouse so hide menu entries which should be accessed via Tabs on their warehouse
+                # & other things that HNRC
+                return False
+            #else:
+            #    return True
+        #def use_kits(i):
+        #    if root_org == "Honduran Red Cross":
+        #        # Honduran RC use Kits
+        #        return True
+        #    else:
+        #        return False
+        #def use_types(i):
+        #    if root_org == "Nepal Red Cross Society":
+        #        # Nepal RC use Warehouse Types
+        #        return True
+        #    else:
+        #        return False
+        use_commit = lambda i: settings.get_req_use_commit()
+
+        return M()(
+                    #M("Home", f="index"),
+                    M("Warehouses", c="inv", f="warehouse", m="summary", check=multi_warehouse)(
+                        M("Create", m="create"),
+                        M("Import", m="import", p="create"),
+                    ),
+                    M("Warehouse Stock", c="inv", f="inv_item", args="summary")(
+                        M("Search Shipped Items", f="track_item"),
+                        M("Adjust Stock Levels", f="adj"#, check=use_adjust
+                          ),
+                        M("Kitting", f="kitting"#, check=use_kits
+                          ),
+                        M("Import", f="inv_item", m="import", p="create"),
+                    ),
+                    M("Reports", c="inv", f="inv_item")(
+                        M("Warehouse Stock", f="inv_item", m="report"),
+                        M("Stock Position", f="inv_item", m="grouped",
+                          vars={"report": "default"},
+                          ),
+                        M("Weight and Volume", f="inv_item", m="grouped",
+                          vars={"report": "weight_and_volume"},
+                          ),
+                        M("Stock Movements", f="inv_item", m="grouped",
+                          vars={"report": "movements"},
+                          ),
+                        M("Expiration Report", c="inv", f="track_item",
+                          vars=dict(report="exp")),
+                        M("Monetization Report", c="inv", f="inv_item",
+                          vars=dict(report="mon")),
+                        M("Utilization Report", c="inv", f="track_item",
+                          vars=dict(report="util")),
+                        M("Summary of Incoming Supplies", c="inv", f="track_item",
+                          vars=dict(report="inc")),
+                         M("Summary of Releases", c="inv", f="track_item",
+                          vars=dict(report="rel")),
+                    ),
+                    M(inv_recv_list, c="inv", f="recv")(
+                        M("Create", m="create"),
+                    ),
+                    M("Sent Shipments", c="inv", f="send")(
+                        M("Create", m="create"),
+                        M("Search Shipped Items", f="track_item"),
+                    ),
+                    M("Items", c="supply", f="item", m="summary", check=basic_warehouse)(
+                        M("Create", m="create"),
+                        M("Import", f="catalog_item", m="import", p="create", restrict=[ORG_ADMIN]),
+                    ),
+                    # Catalog Items moved to be next to the Item Categories
+                    #M("Catalog Items", c="supply", f="catalog_item")(
+                    #   M("Create", m="create"),
+                    #),
+                    #M("Brands", c="supply", f="brand",
+                    #  restrict=[ADMIN])(
+                    #    M("Create", m="create"),
+                    #),
+                    M("Catalogs", c="supply", f="catalog", check=basic_warehouse)(
+                        M("Create", m="create"),
+                    ),
+                    M("Item Categories", c="supply", f="item_category",
+                      restrict=[ORG_ADMIN])(
+                        M("Create", m="create"),
+                    ),
+                    M("Suppliers", c="inv", f="supplier")(
+                        M("Create", m="create"),
+                        M("Import", m="import", p="create"),
+                    ),
+                    M("Facilities", c="inv", f="facility")(
+                        M("Create", m="create", t="org_facility"),
+                    ),
+                    M("Facility Types", c="inv", f="facility_type",
+                      restrict=[ADMIN])(
+                        M("Create", m="create"),
+                    ),
+                    #M("Warehouse Types", c="inv", f="warehouse_type", check=use_types,
+                    #  restrict=[ADMIN])(
+                    #    M("Create", m="create"),
+                    #),
+                    M("Requests", c="req", f="req")(
+                        M("Create", m="create"),
+                        M("Requested Items", f="req_item"),
+                    ),
+                    M("Commitments", c="req", f="commit", check=use_commit)(
+                    ),
+                )
+
+    # -------------------------------------------------------------------------
+    def req(self):
+        """ Requests Management """
+
+        # Same as Inventory
+        return self.inv()
+
+    # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
+    #@staticmethod
+    #def project():
+    #    """ PROJECT / Project Tracking & Management """
+    #
+    #    #root_org = current.auth.root_org_name()
+    #    #def community_volunteers(i):
+    #    #    if root_org == "Honduran Red Cross":
+    #    #        return True
+    #    #    else:
+    #    #        return False
+    #
+    #    system_roles = current.session.s3.system_roles
+    #    ORG_ADMIN = system_roles.ORG_ADMIN
+    #
+    #    menu = M(c="project")(
+    #         M("Programs", f="programme")(
+    #            M("Create", m="create"),
+    #         ),
+    #         M("Projects", f="project", m="summary")(
+    #            M("Create", m="create"),
+    #         ),
+    #         M("Locations", f="location")(
+    #            # Better created from tab (otherwise Activity Type filter won't work)
+    #            #M("Create", m="create"),
+    #            M("Map", m="map"),
+    #            M("Community Contacts", f="location_contact"),
+    #            #M("Community Volunteers", f="volunteer",
+    #            #  check=community_volunteers),
+    #         ),
+    #        M("Reports", f="location", m="report")(
+    #            M("3W", f="location", m="report"),
+    #            M("Beneficiaries", f="beneficiary", m="report"),
+    #            #M("Indicators", f="indicator", m="report",
+    #            #  check=indicators,
+    #            #  ),
+    #            #M("Indicators over Time", f="indicator", m="timeplot",
+    #            #  check=indicators,
+    #            #  ),
+    #            M("Funding", f="organisation", m="report"),
+    #         ),
+    #         M("Import", f="project", m="import", p="create", restrict=[ORG_ADMIN])(
+    #            M("Import Projects", m="import", p="create"),
+    #            M("Import Project Organizations", f="organisation",
+    #              m="import", p="create"),
+    #            M("Import Project Communities", f="location",
+    #              m="import", p="create"),
+    #         ),
+    #         M("National Societies",  c="org", f="organisation",
+    #                                  vars=red_cross_filter)(
+    #            #M("Create", m="create", restrict=[ADMIN]),
+    #            #M("Import", m="import", p="create", restrict=[ADMIN]),
+    #         ),
+    #         M("Partner Organizations",  f="partners")(
+    #            M("Create", m="create", restrict=[ORG_ADMIN]),
+    #            M("Import", m="import", p="create", restrict=[ORG_ADMIN]),
+    #         ),
+    #         #M("Activity Types", f="activity_type")(
+    #         #   M("Create", m="create"),
+    #         #),
+    #         M("Beneficiary Types", f="beneficiary_type")(
+    #            M("Create", m="create"),
+    #         ),
+    #         #M("Demographics", f="demographic")(
+    #         #   M("Create", m="create"),
+    #         #),
+    #         M("Hazards", f="hazard")(
+    #            M("Create", m="create"),
+    #         ),
+    #         #M("Indicators", f="indicator",
+    #         #  check=indicators)(
+    #         #   M("Create", m="create"),
+    #         #),
+    #         M("Sectors", f="sector")(
+    #            M("Create", m="create"),
+    #         ),
+    #         M("Themes", f="theme")(
+    #            M("Create", m="create"),
+    #         ),
+    #        )
+    #
+    #    return menu
+
+    # -------------------------------------------------------------------------
+  
 # END =========================================================================
